@@ -12,6 +12,7 @@ const convertRouter  = require('./routes/convert');
 const healthRouter   = require('./routes/health');
 const refreshRouter  = require('./routes/refresh');
 const cleanupRouter  = require('./routes/cleanup');
+const authMiddleware = require('./middleware/auth');
 const errorHandler   = require('./middleware/errorHandler');
 const swaggerSpec    = require('./swaggerSpec');
 const logger         = require('./logger');
@@ -54,12 +55,15 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+// Public routes (health checks, keep-alive, ping, documentation)
 app.use('/api/health',  healthRouter);
-app.use('/api/convert', convertRouter);
 app.use('/api/refresh', refreshRouter);
-app.use('/api/cleanup', cleanupRouter);
 app.use('/api/ping',    refreshRouter);
 app.use('/ping',        refreshRouter);
+
+// Protected routes (require static API authentication token)
+app.use('/api/convert', authMiddleware, convertRouter);
+app.use('/api/cleanup', authMiddleware, cleanupRouter);
 
 // Root redirect to docs
 app.get('/', (req, res) => res.redirect('/api/docs'));

@@ -46,12 +46,25 @@ Navigate to **http://localhost:3000/api/docs** in your browser — you'll see th
 
 ---
 
+## 🔒 Authentication
+
+All conversion (`/api/convert/*`) and cleanup endpoints require a static API authentication token configured via the `API_AUTH_TOKEN` environment variable.
+
+You can supply the token in any of the following ways:
+1. **Header (Recommended):** `x-api-key: <YOUR_API_TOKEN>`
+2. **Bearer Header:** `Authorization: Bearer <YOUR_API_TOKEN>`
+3. **Query Parameter:** `?apiKey=<YOUR_API_TOKEN>` (or `?token=...`)
+
+*(Public endpoints `/api/health`, `/api/refresh`, `/api/ping`, and `/api/docs` do not require authentication.)*
+
+---
+
 ## 📡 API Endpoints
 
-### `GET /api/health`
+### `GET /api/health` (Public)
 Check API health and stats.
 
-### `GET /api/refresh` (or `GET /api/ping`)
+### `GET /api/refresh` (or `GET /api/ping`) (Public)
 Keep-alive ping endpoint to prevent sleep on free hosting tiers (Render, Railway, etc.) or wake up the server.
 
 ```bash
@@ -104,6 +117,7 @@ Upload a file, converts it immediately, and returns a JSON response with the `do
 
 ```bash
 curl -X POST http://localhost:3000/api/convert \
+  -H "x-api-key: <YOUR_API_TOKEN>" \
   -F "file=@mybook.azw3" \
   -F "targetFormat=txt"
 ```
@@ -118,14 +132,14 @@ curl -X POST http://localhost:3000/api/convert \
   "to": "txt",
   "outputFileName": "mybook.txt",
   "fileSizeBytes": 51230,
-  "downloadUrl": "http://localhost:3000/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
+  "downloadUrl": "http://localhost:3000/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7?token=<YOUR_API_TOKEN>",
   "downloadPath": "/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
   "expiresIn": "60 minutes"
 }
 ```
 
 > **Note:** To stream the raw binary directly instead of JSON, append `?direct=true`:  
-> `curl -X POST "http://localhost:3000/api/convert?direct=true" -F "file=@book.epub" -F "targetFormat=pdf" -o book.pdf`
+> `curl -X POST "http://localhost:3000/api/convert?direct=true" -H "x-api-key: <YOUR_API_TOKEN>" -F "file=@book.epub" -F "targetFormat=pdf" -o book.pdf`
 
 ### `POST /api/convert/async` — Asynchronous conversion
 Start a background conversion job (useful for large files).
@@ -133,17 +147,18 @@ Start a background conversion job (useful for large files).
 ```bash
 # 1. Start job
 curl -X POST http://localhost:3000/api/convert/async \
+  -H "x-api-key: <YOUR_API_TOKEN>" \
   -F "file=@mybook.epub" \
   -F "targetFormat=pdf"
 
 # Response:
-# { "jobId": "abc123", "pollUrl": "/api/convert/job/abc123", ... }
+# { "jobId": "abc123", "pollUrl": "/api/convert/job/abc123?token=...", ... }
 
 # 2. Poll for status
-curl http://localhost:3000/api/convert/job/abc123
+curl "http://localhost:3000/api/convert/job/abc123?token=<YOUR_API_TOKEN>"
 
 # 3. Download when done
-curl http://localhost:3000/api/convert/download/abc123 -o output.pdf
+curl "http://localhost:3000/api/convert/download/abc123?token=<YOUR_API_TOKEN>" -o output.pdf
 ```
 
 ---
@@ -153,6 +168,7 @@ curl http://localhost:3000/api/convert/download/abc123 -o output.pdf
 | Variable           | Default     | Description                      |
 |--------------------|-------------|----------------------------------|
 | `PORT`             | `3000`      | HTTP port to listen on           |
+| `API_AUTH_TOKEN`   | `""`        | Static secret token required for conversion endpoints |
 | `NODE_ENV`         | `development` | `development` or `production`  |
 | `LOG_LEVEL`        | `info`      | Winston log level                |
 | `MAX_FILE_SIZE_MB` | `100`       | Maximum upload file size in MB   |

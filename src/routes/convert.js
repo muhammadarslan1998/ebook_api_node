@@ -198,7 +198,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     // Default: Return JSON containing download URL and metadata
     const baseUrl      = getBaseUrl(req);
     const downloadPath = `/api/convert/download/${jobId}`;
-    const downloadUrl  = `${baseUrl}${downloadPath}`;
+    const downloadUrl  = `${baseUrl}${downloadPath}?token=${config.authToken}`;
 
     return res.status(200).json({
       status:         'success',
@@ -252,9 +252,9 @@ router.post('/async', upload.single('file'), async (req, res, next) => {
   res.status(202).json({
     jobId:        job.id,
     status:       job.status,
-    pollUrl:      `${baseUrl}${pollPath}`,
+    pollUrl:      `${baseUrl}${pollPath}?token=${config.authToken}`,
     pollPath:     pollPath,
-    downloadUrl:  `${baseUrl}${downloadPath}`,
+    downloadUrl:  `${baseUrl}${downloadPath}?token=${config.authToken}`,
     downloadPath: downloadPath,
     message:      'Conversion started. Poll the pollUrl for status.',
   });
@@ -294,7 +294,7 @@ router.get('/job/:id', (req, res) => {
     updatedAt:    job.updatedAt,
   };
   if (job.status === 'done') {
-    response.downloadUrl  = `${baseUrl}${downloadPath}`;
+    response.downloadUrl  = `${baseUrl}${downloadPath}?token=${config.authToken}`;
     response.downloadPath = downloadPath;
   }
   if (job.status === 'failed') response.error = job.error;

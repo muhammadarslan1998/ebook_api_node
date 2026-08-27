@@ -50,6 +50,9 @@ function buildSupportedConversions() {
 module.exports = {
   port: process.env.PORT || 3000,
 
+  // Static Authentication Token for Convert API (configured via environment variable / .env)
+  authToken: (process.env.API_AUTH_TOKEN || '').trim(),
+
   // Upload configuration
   upload: {
     dir: path.join(__dirname, '..', 'uploads'),

@@ -307,10 +307,26 @@ module.exports = {
         ],
         responses: {
           200: { description: 'Converted file binary' },
+          401: { description: 'Unauthorized — missing or invalid token' },
           404: { description: 'Job not found' },
           409: { description: 'Conversion not yet complete' },
           410: { description: 'File expired' },
         },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      ApiKeyAuth: {
+        type:        'apiKey',
+        in:          'header',
+        name:        'x-api-key',
+        description: 'Provide your secret API authentication token',
+      },
+      BearerAuth: {
+        type:        'http',
+        scheme:      'bearer',
+        description: 'Bearer token format: `Bearer <token>`',
       },
     },
   },

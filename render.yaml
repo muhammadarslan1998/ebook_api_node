@@ -19,4 +19,6 @@ services:
         value: /usr/bin/calibre-debug
       - key: ENABLE_SELF_PING
         value: "true"
+      - key: API_AUTH_TOKEN
+        sync: false
     healthCheckPath: /api/health
