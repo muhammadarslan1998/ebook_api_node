@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ebook-converter-api
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: MAX_FILE_SIZE_MB
+        value: 100
+      - key: OUTPUT_TTL_MS
+        value: 3600000
+      - key: CALIBRE_BIN
+        value: /usr/bin/ebook-convert
+      - key: CALIBRE_DEBUG_BIN
+        value: /usr/bin/calibre-debug
+      - key: ENABLE_SELF_PING
+        value: "true"
+    healthCheckPath: /api/health
