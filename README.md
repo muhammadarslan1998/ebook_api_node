@@ -100,14 +100,32 @@ curl "http://localhost:3000/api/cleanup?ttlMinutes=30"
 List all supported source → target format pairs.
 
 ### `POST /api/convert` — Synchronous conversion
-Upload a file and receive the converted result immediately.
+Upload a file, converts it immediately, and returns a JSON response with the `downloadUrl`.
 
 ```bash
 curl -X POST http://localhost:3000/api/convert \
-  -F "file=@mybook.epub" \
-  -F "targetFormat=pdf" \
-  -o converted.pdf
+  -F "file=@mybook.azw3" \
+  -F "targetFormat=txt"
 ```
+
+```json
+{
+  "status": "success",
+  "message": "Conversion completed successfully.",
+  "jobId": "80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
+  "sourceFile": "mybook.azw3",
+  "from": "azw3",
+  "to": "txt",
+  "outputFileName": "mybook.txt",
+  "fileSizeBytes": 51230,
+  "downloadUrl": "http://localhost:3000/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
+  "downloadPath": "/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
+  "expiresIn": "60 minutes"
+}
+```
+
+> **Note:** To stream the raw binary directly instead of JSON, append `?direct=true`:  
+> `curl -X POST "http://localhost:3000/api/convert?direct=true" -F "file=@book.epub" -F "targetFormat=pdf" -o book.pdf`
 
 ### `POST /api/convert/async` — Asynchronous conversion
 Start a background conversion job (useful for large files).

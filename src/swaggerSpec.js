@@ -198,12 +198,26 @@ module.exports = {
         },
         responses: {
           200: {
-            description: 'Converted file returned as binary download',
+            description: 'Conversion completed successfully with downloadUrl',
             content: {
-              'application/pdf':        { schema: { type: 'string', format: 'binary' } },
-              'application/epub+zip':   { schema: { type: 'string', format: 'binary' } },
-              'text/html':              { schema: { type: 'string', format: 'binary' } },
-              'text/plain':             { schema: { type: 'string', format: 'binary' } },
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status:         { type: 'string', example: 'success' },
+                    message:        { type: 'string', example: 'Conversion completed successfully.' },
+                    jobId:          { type: 'string', example: '80a440fa-5d38-47e5-b5ea-0ff3597e47f7' },
+                    sourceFile:     { type: 'string', example: 'mybook.azw3' },
+                    from:           { type: 'string', example: 'azw3' },
+                    to:             { type: 'string', example: 'txt' },
+                    outputFileName: { type: 'string', example: 'mybook.txt' },
+                    fileSizeBytes:  { type: 'number', example: 51230 },
+                    downloadUrl:    { type: 'string', example: 'https://your-api.onrender.com/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7' },
+                    downloadPath:   { type: 'string', example: '/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7' },
+                    expiresIn:      { type: 'string', example: '60 minutes' },
+                  },
+                },
+              },
             },
           },
           400: { description: 'Bad request — missing file or targetFormat' },

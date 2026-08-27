@@ -100,14 +100,24 @@ router.get('/cleanup', (req, res) => {
   });
 });
 
+/**
+ * Get base URL respecting reverse proxy headers (e.g. on Render)
+ */
+function getBaseUrl(req) {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host     = req.headers['x-forwarded-host'] || req.get('host');
+  return `${protocol}://${host}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/convert   (synchronous)
+// POST /api/convert   (synchronous — converts & returns downloadUrl)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * @openapi
  * /api/convert:
  *   post:
  *     summary: Convert an eBook synchronously
+ *     description: Converts the file and returns a JSON response with the downloadUrl.
  *     requestBody:
  *       required: true
  *       content:
@@ -124,7 +134,7 @@ router.get('/cleanup', (req, res) => {
  *                 example: pdf
  *     responses:
  *       200:
- *         description: Converted file (binary)
+ *         description: Conversion completed successfully with downloadUrl
  */
 router.post('/', upload.single('file'), async (req, res, next) => {
   if (!req.file) {
@@ -140,41 +150,72 @@ router.post('/', upload.single('file'), async (req, res, next) => {
   const jobId        = uuidv4();
   const outputPath   = buildOutputPath(jobId, targetFormat);
 
+  // Register in job store
+  createJob({
+    id: jobId,
+    sourceFile: req.file.originalname,
+    from: sourceFormat,
+    to: targetFormat,
+  });
+
   try {
     await convert(req.file.path, sourceFormat, targetFormat, outputPath);
 
-    // Determine MIME type for response
-    const mimeMap = {
-      pdf:  'application/pdf',
-      epub: 'application/epub+zip',
-      html: 'text/html',
-      txt:  'text/plain',
-      mobi: 'application/x-mobipocket-ebook',
-      azw3: 'application/vnd.amazon.ebook',
-      lrf:  'application/x-lrf',
-      pdb:  'application/vnd.palm',
-      rtf:  'application/rtf',
-      oeb:  'application/zip',  // OEB delivered as a zip archive
-      fb2:  'application/x-fictionbook+xml',
-      tcr:  'application/octet-stream',
-    };
-    const mime = mimeMap[targetFormat] || 'application/octet-stream';
+    // Mark job as done so download endpoint works
+    updateJob(jobId, { status: 'done', outputFile: outputPath });
+
+    // Clean up temporary upload file immediately
+    fs.unlink(req.file.path, () => {});
+
+    const fileStat     = fs.existsSync(outputPath) ? fs.statSync(outputPath) : { size: 0 };
     const originalBase = path.basename(req.file.originalname, path.extname(req.file.originalname));
-    // OEB is zipped — remap to actual file extension for the download filename
-    const fileExtMap = { oeb: 'zip' };
-    const fileExt    = fileExtMap[targetFormat] || targetFormat;
+    const fileExtMap   = { oeb: 'zip' };
+    const fileExt      = fileExtMap[targetFormat] || targetFormat;
     const downloadName = `${originalBase}.${fileExt}`;
 
-    res.set('Content-Disposition', `attachment; filename="${downloadName}"`);
-    res.set('Content-Type', mime);
-    res.sendFile(outputPath, { root: '/' }, (err) => {
-      if (err) logger.warn('sendFile error', { err: err?.message });
-      // Clean up temp files
-      fs.unlink(req.file.path, () => {});
-      fs.unlink(outputPath,    () => {});
+    // Optional direct binary stream if requested via ?direct=true
+    if (req.query.direct === 'true') {
+      const mimeMap = {
+        pdf:  'application/pdf',
+        epub: 'application/epub+zip',
+        html: 'text/html',
+        txt:  'text/plain',
+        mobi: 'application/x-mobipocket-ebook',
+        azw3: 'application/vnd.amazon.ebook',
+        lrf:  'application/x-lrf',
+        pdb:  'application/vnd.palm',
+        rtf:  'application/rtf',
+        oeb:  'application/zip',
+        fb2:  'application/x-fictionbook+xml',
+        tcr:  'application/octet-stream',
+      };
+      const mime = mimeMap[targetFormat] || 'application/octet-stream';
+      res.set('Content-Disposition', `attachment; filename="${downloadName}"`);
+      res.set('Content-Type', mime);
+      return res.sendFile(outputPath, { root: '/' });
+    }
+
+    // Default: Return JSON containing download URL and metadata
+    const baseUrl      = getBaseUrl(req);
+    const downloadPath = `/api/convert/download/${jobId}`;
+    const downloadUrl  = `${baseUrl}${downloadPath}`;
+
+    return res.status(200).json({
+      status:         'success',
+      message:        'Conversion completed successfully.',
+      jobId:          jobId,
+      sourceFile:     req.file.originalname,
+      from:           sourceFormat,
+      to:             targetFormat,
+      outputFileName: downloadName,
+      fileSizeBytes:  fileStat.size,
+      downloadUrl:    downloadUrl,
+      downloadPath:   downloadPath,
+      expiresIn:      `${Math.round(config.output.ttlMs / 60000)} minutes`,
     });
   } catch (err) {
     fs.unlink(req.file.path, () => {});
+    updateJob(jobId, { status: 'failed', error: err.message });
     next(err);
   }
 });
@@ -204,12 +245,18 @@ router.post('/async', upload.single('file'), async (req, res, next) => {
     to: targetFormat,
   });
 
+  const baseUrl      = getBaseUrl(req);
+  const downloadPath = `/api/convert/download/${job.id}`;
+  const pollPath     = `/api/convert/job/${job.id}`;
+
   res.status(202).json({
-    jobId:       job.id,
-    status:      job.status,
-    pollUrl:     `/api/convert/job/${job.id}`,
-    downloadUrl: `/api/convert/download/${job.id}`,
-    message:     'Conversion started. Poll the pollUrl for status.',
+    jobId:        job.id,
+    status:       job.status,
+    pollUrl:      `${baseUrl}${pollPath}`,
+    pollPath:     pollPath,
+    downloadUrl:  `${baseUrl}${downloadPath}`,
+    downloadPath: downloadPath,
+    message:      'Conversion started. Poll the pollUrl for status.',
   });
 
   // Run conversion in background
@@ -234,17 +281,23 @@ router.get('/job/:id', (req, res) => {
   const job = getJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
 
+  const baseUrl      = getBaseUrl(req);
+  const downloadPath = `/api/convert/download/${job.id}`;
+
   const response = {
-    jobId:      job.id,
-    status:     job.status,
-    sourceFile: job.sourceFile,
-    from:       job.from,
-    to:         job.to,
-    createdAt:  job.createdAt,
-    updatedAt:  job.updatedAt,
+    jobId:        job.id,
+    status:       job.status,
+    sourceFile:   job.sourceFile,
+    from:         job.from,
+    to:           job.to,
+    createdAt:    job.createdAt,
+    updatedAt:    job.updatedAt,
   };
-  if (job.status === 'done')   response.downloadUrl = `/api/convert/download/${job.id}`;
-  if (job.status === 'failed') response.error       = job.error;
+  if (job.status === 'done') {
+    response.downloadUrl  = `${baseUrl}${downloadPath}`;
+    response.downloadPath = downloadPath;
+  }
+  if (job.status === 'failed') response.error = job.error;
 
   res.json(response);
 });
