@@ -2,9 +2,10 @@
 
 /**
  * Universal font configurations and CSS typography rules
- * ensuring consistent glyph rendering across all formats (PDF, EPUB, HTML, DOCX, MOBI, AZW3, etc.)
- * for all world languages (Thai, Chinese, Japanese, Korean, Amharic/Ethiopic, Arabic,
- * Hindi/Devanagari, Hebrew, Russian/Cyrillic, Greek, Latin).
+ * covering ALL human writing systems (Tamil, Malayalam, Telugu, Kannada, Bengali,
+ * Gujarati, Gurmukhi/Punjabi, Odia, Sinhala, Myanmar/Burmese, Khmer, Lao, Tibetan,
+ * Georgian, Armenian, Thai, Ethiopic/Amharic, Arabic/Persian/Urdu, Devanagari/Hindi,
+ * Hebrew, Chinese, Japanese, Korean, Cyrillic, Greek, Latin, etc.)
  */
 
 const UNIVERSAL_FONT_FAMILY = [
@@ -13,6 +14,36 @@ const UNIVERSAL_FONT_FAMILY = [
   '"Segoe UI"',
   'Roboto',
   '"Noto Sans"',
+  '"Noto Sans Tamil"',
+  '"Tamil Sangam MN"',
+  '"Tamil MN"',
+  '"Noto Sans Malayalam"',
+  '"Malayalam Sangam MN"',
+  '"Malayalam MN"',
+  '"Noto Sans Telugu"',
+  '"Telugu Sangam MN"',
+  '"Noto Sans Kannada"',
+  '"Kannada Sangam MN"',
+  '"Noto Sans Bengali"',
+  '"Bangla Sangam MN"',
+  '"Noto Sans Gujarati"',
+  '"Gujarati Sangam MN"',
+  '"Noto Sans Gurmukhi"',
+  '"Gurmukhi Sangam MN"',
+  '"Noto Sans Oriya"',
+  '"Oriya Sangam MN"',
+  '"Noto Sans Sinhala"',
+  '"Sinhala Sangam MN"',
+  '"Noto Sans Myanmar"',
+  '"Myanmar Sangam MN"',
+  '"Noto Sans Khmer"',
+  '"Khmer Sangam MN"',
+  '"Noto Sans Lao"',
+  '"Lao Sangam MN"',
+  '"Noto Serif Tibetan"',
+  '"Kailasa"',
+  '"Noto Sans Georgian"',
+  '"Noto Sans Armenian"',
   '"Noto Sans Thai"',
   '"Thonburi"',
   '"Leelawadee UI"',
@@ -55,7 +86,7 @@ const UNIVERSAL_FONT_FAMILY = [
 const GOOGLE_FONTS_HTML_HEAD = `
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400&family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+Ethiopic:wght@400;700&family=Noto+Sans+Hebrew:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+TC:wght@400;700&family=Noto+Sans+Thai:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400&family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+Armenian:wght@400;700&family=Noto+Sans+Bengali:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+Ethiopic:wght@400;700&family=Noto+Sans+Georgian:wght@400;700&family=Noto+Sans+Gujarati:wght@400;700&family=Noto+Sans+Gurmukhi:wght@400;700&family=Noto+Sans+Hebrew:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+Kannada:wght@400;700&family=Noto+Sans+Khmer:wght@400;700&family=Noto+Sans+Lao:wght@400;700&family=Noto+Sans+Malayalam:wght@400;700&family=Noto+Sans+Myanmar:wght@400;700&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+Sinhala:wght@400;700&family=Noto+Sans+TC:wght@400;700&family=Noto+Sans+Tamil:wght@400;700&family=Noto+Sans+Telugu:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Serif+Tibetan:wght@400;700&display=swap" rel="stylesheet">
 `.trim();
 
 const UNIVERSAL_CSS_RULES = `

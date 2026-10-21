@@ -9,7 +9,7 @@
  *  - ignoreFailedDownloads: true → silently skip any image download failures
  *  - Content is sanitised to remove <img> tags with non-http srcs
  */
-const fs       = require('fs');
+const fs = require('fs');
 const { EPub } = require('epub-gen-memory');
 const { UNIVERSAL_CSS_RULES } = require('./fontConfig');
 
@@ -57,7 +57,7 @@ async function generateEpub(opts, outputPath) {
   };
 
   const epubChapters = chapters.map((ch, i) => ({
-    title:   ch.title || `Chapter ${i + 1}`,
+    title: ch.title || `Chapter ${i + 1}`,
     // sanitise: remove relative <img> and external resources that would trigger network fetches
     content: sanitiseHtml(ch.content || ch.html || '<p>Empty chapter</p>'),
   }));
@@ -75,13 +75,13 @@ async function textToEpub(text, outputPath, meta = {}) {
 
   const chapters = rawSections.length > 0
     ? rawSections.map((section, i) => ({
-        title:   `Section ${i + 1}`,
-        content: '<p>' + section.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>',
-      }))
+      title: `Section ${i + 1}`,
+      content: '<p>' + section.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>',
+    }))
     : [{
-        title:   'Content',
-        content: '<p>' + text.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>',
-      }];
+      title: 'Content',
+      content: '<p>' + text.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>',
+    }];
 
   await generateEpub(
     { title: meta.title || 'Converted', author: meta.author || 'Unknown', lang: 'en', chapters },
@@ -94,9 +94,9 @@ async function textToEpub(text, outputPath, meta = {}) {
  */
 async function htmlToEpub(htmlContent, outputPath, meta = {}) {
   await generateEpub({
-    title:    meta.title  || 'Converted Document',
-    author:   meta.author || 'Unknown',
-    lang:     'en',
+    title: meta.title || 'Converted Document',
+    author: meta.author || 'Unknown',
+    lang: 'en',
     chapters: [{ title: 'Content', content: htmlContent }],
   }, outputPath);
 }

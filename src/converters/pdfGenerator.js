@@ -1,9 +1,15 @@
 'use strict';
 /**
  * Text / HTML → PDF generator
- * Uses PDFKit with dynamic multi-script font fallback to support all world languages
- * simultaneously in the same document (Thai, Chinese, Mandarin, Japanese, Amharic,
- * Korean, Arabic, Hebrew, Hindi/Devanagari, Russian/Cyrillic, Greek, European, etc.).
+ * Uses PDFKit with dynamic multi-script font fallback to support ALL world languages
+ * simultaneously in the same document:
+ *  - Indic / South Asian: Tamil, Malayalam, Telugu, Kannada, Bengali, Gujarati,
+ *    Gurmukhi (Punjabi), Odia, Sinhala, Devanagari (Hindi, Marathi, Sanskrit, Nepali)
+ *  - Southeast Asian: Thai, Myanmar (Burmese), Khmer, Lao
+ *  - Middle Eastern / Central Asian: Arabic, Persian, Urdu, Hebrew, Armenian, Georgian, Tibetan
+ *  - East Asian: Chinese (Simplified & Traditional), Japanese, Korean
+ *  - African: Ethiopic (Amharic, Tigrinya)
+ *  - European / Global: Latin, Cyrillic (Russian, Ukrainian, etc.), Greek, Vietnamese
  */
 const fs       = require('fs');
 const path     = require('path');
@@ -12,10 +18,15 @@ const fontkit  = require('fontkit');
 const { htmlToText } = require('html-to-text');
 const logger   = require('../logger');
 
+// Ensure fontkit handles null GPOS anchors gracefully for complex scripts
+try {
+  require('../../scripts/patch-fontkit');
+} catch (_) {}
+
 let cachedFontPool = null;
 
 /**
- * Initialize and cache the font pool in order of script breadth.
+ * Initialize and cache the universal font pool.
  */
 function initFontPool() {
   if (cachedFontPool) return cachedFontPool;
@@ -44,38 +55,39 @@ function initFontPool() {
     add('custom', process.env.PDF_FONT_PATH);
   }
 
-  // 2. Bundled script-specific fonts (Google Noto Fonts & Universal CJK)
-  add('latin',      path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSans.ttf'));
-  add('thai',       path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSansThai.ttf'));
-  add('ethiopic',   path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSansEthiopic.ttf'));
-  add('arabic',     path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSansArabic.ttf'));
-  add('devanagari', path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSansDevanagari.ttf'));
-  add('hebrew',     path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSansHebrew.ttf'));
-  add('chinese',    path.join(__dirname, '..', '..', 'assets', 'fonts', 'Chinese.ttf'));
-  add('japanese',   path.join(__dirname, '..', '..', 'assets', 'fonts', 'BIZUDGothic-Regular.ttf'));
-  add('korean',     path.join(__dirname, '..', '..', 'assets', 'fonts', 'NotoSansKR.ttf'));
+  // 2. Bundled universal fonts (Google Noto Fonts & Universal CJK in assets/fonts/)
+  const fontsDir = path.join(__dirname, '..', '..', 'assets', 'fonts');
+  add('latin',      path.join(fontsDir, 'NotoSans.ttf'));
+  add('tamil',      path.join(fontsDir, 'NotoSansTamil.ttf'));
+  add('malayalam',  path.join(fontsDir, 'NotoSansMalayalam.ttf'));
+  add('telugu',     path.join(fontsDir, 'NotoSansTelugu.ttf'));
+  add('kannada',    path.join(fontsDir, 'NotoSansKannada.ttf'));
+  add('bengali',    path.join(fontsDir, 'NotoSansBengali.ttf'));
+  add('gujarati',   path.join(fontsDir, 'NotoSansGujarati.ttf'));
+  add('gurmukhi',   path.join(fontsDir, 'NotoSansGurmukhi.ttf'));
+  add('oriya',      path.join(fontsDir, 'NotoSansOriya.ttf'));
+  add('sinhala',    path.join(fontsDir, 'NotoSansSinhala.ttf'));
+  add('myanmar',    path.join(fontsDir, 'NotoSansMyanmar.ttf'));
+  add('khmer',      path.join(fontsDir, 'NotoSansKhmer.ttf'));
+  add('lao',        path.join(fontsDir, 'NotoSansLao.ttf'));
+  add('tibetan',    path.join(fontsDir, 'NotoSerifTibetan.ttf'));
+  add('georgian',   path.join(fontsDir, 'NotoSansGeorgian.ttf'));
+  add('armenian',   path.join(fontsDir, 'NotoSansArmenian.ttf'));
+  add('thai',       path.join(fontsDir, 'NotoSansThai.ttf'));
+  add('ethiopic',   path.join(fontsDir, 'NotoSansEthiopic.ttf'));
+  add('arabic',     path.join(fontsDir, 'NotoSansArabic.ttf'));
+  add('devanagari', path.join(fontsDir, 'NotoSansDevanagari.ttf'));
+  add('hebrew',     path.join(fontsDir, 'NotoSansHebrew.ttf'));
+  add('chinese',    path.join(fontsDir, 'Chinese.ttf'));
+  add('japanese',   path.join(fontsDir, 'BIZUDGothic-Regular.ttf'));
+  add('korean',     path.join(fontsDir, 'NotoSansKR.ttf'));
 
-  // 3. Universal Unicode fonts
+  // 3. System Unicode fallbacks
   add('arial_unicode',     '/System/Library/Fonts/Supplemental/Arial Unicode.ttf');
   add('arial_unicode_lib', '/Library/Fonts/Arial Unicode.ttf');
   add('arial_win',         'C:\\Windows\\Fonts\\arialuni.ttf');
-
-  // 4. System fallbacks for Linux / Docker / macOS / Windows
-  add('kefa_mac',            '/System/Library/Fonts/Supplemental/KefaIII.ttf');
-  add('apple_gothic_mac',    '/System/Library/Fonts/Supplemental/AppleGothic.ttf');
-  add('noto_gothic_mac',     '/System/Library/Fonts/Supplemental/NotoSansGothic-Regular.ttf');
-  add('noto_cjk_linux',      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc');
-  add('noto_cjk_truetype',   '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc');
-  add('wqy_zenhei_linux',    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc');
-  add('noto_thai_linux',     '/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf');
-  add('noto_ethiopic_linux', '/usr/share/fonts/truetype/noto/NotoSansEthiopic-Regular.ttf');
-  add('ipafont_linux',       '/usr/share/fonts/truetype/ipafont-gothic/ipag.ttf');
-  add('takao_linux',         '/usr/share/fonts/truetype/takao-gothic/TakaoPGothic.ttf');
-  add('dejavu_linux',        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
-  add('liberation_linux',    '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf');
-  add('nyala_win',           'C:\\Windows\\Fonts\\nyala.ttf');
-  add('msgothic_win',        'C:\\Windows\\Fonts\\msgothic.ttc');
-  add('msyh_win',            'C:\\Windows\\Fonts\\msyh.ttc');
+  add('noto_cjk_linux',    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc');
+  add('noto_cjk_truetype', '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc');
 
   if (pool.length > 0) {
     logger.info(`PDF font pool initialized with ${pool.length} font(s): ${pool.map(p => p.label).join(', ')}`);
@@ -91,83 +103,175 @@ function initFontPool() {
  * Find the font in the pool that best matches the script of codePoint.
  */
 function getFontForChar(pool, codePoint) {
-  // 1. Thai (U+0E00–U+0E7F)
-  if (codePoint >= 0x0E00 && codePoint <= 0x0E7F) {
-    const f = pool.find(p => p.label === 'thai' || p.label.includes('thai'));
+  // 1. Tamil (U+0B80–U+0BFF)
+  if (codePoint >= 0x0B80 && codePoint <= 0x0BFF) {
+    const f = pool.find(p => p.label === 'tamil');
     if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 2. Ethiopic / Amharic
+  // 2. Malayalam (U+0D00–U+0D7F)
+  if (codePoint >= 0x0D00 && codePoint <= 0x0D7F) {
+    const f = pool.find(p => p.label === 'malayalam');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 3. Telugu (U+0C00–U+0C7F)
+  if (codePoint >= 0x0C00 && codePoint <= 0x0C7F) {
+    const f = pool.find(p => p.label === 'telugu');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 4. Kannada (U+0C80–U+0CFF)
+  if (codePoint >= 0x0C80 && codePoint <= 0x0CFF) {
+    const f = pool.find(p => p.label === 'kannada');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 5. Bengali & Assamese (U+0980–U+09FF)
+  if (codePoint >= 0x0980 && codePoint <= 0x09FF) {
+    const f = pool.find(p => p.label === 'bengali');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 6. Gujarati (U+0A80–U+0AFF)
+  if (codePoint >= 0x0A80 && codePoint <= 0x0AFF) {
+    const f = pool.find(p => p.label === 'gujarati');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 7. Gurmukhi / Punjabi (U+0A00–U+0A7F)
+  if (codePoint >= 0x0A00 && codePoint <= 0x0A7F) {
+    const f = pool.find(p => p.label === 'gurmukhi');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 8. Odia / Oriya (U+0B00–U+0B7F)
+  if (codePoint >= 0x0B00 && codePoint <= 0x0B7F) {
+    const f = pool.find(p => p.label === 'oriya');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 9. Sinhala (U+0D80–U+0DFF)
+  if (codePoint >= 0x0D80 && codePoint <= 0x0DFF) {
+    const f = pool.find(p => p.label === 'sinhala');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 10. Myanmar / Burmese (U+1000–U+109F, U+A9E0–U+A9FF)
+  if ((codePoint >= 0x1000 && codePoint <= 0x109F) || (codePoint >= 0xA9E0 && codePoint <= 0xA9FF)) {
+    const f = pool.find(p => p.label === 'myanmar');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 11. Khmer / Cambodian (U+1780–U+17FF, U+19E0–U+19FF)
+  if ((codePoint >= 0x1780 && codePoint <= 0x17FF) || (codePoint >= 0x19E0 && codePoint <= 0x19FF)) {
+    const f = pool.find(p => p.label === 'khmer');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 12. Lao (U+0E80–U+0EFF)
+  if (codePoint >= 0x0E80 && codePoint <= 0x0EFF) {
+    const f = pool.find(p => p.label === 'lao');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 13. Tibetan (U+0F00–U+0FFF)
+  if (codePoint >= 0x0F00 && codePoint <= 0x0FFF) {
+    const f = pool.find(p => p.label === 'tibetan');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 14. Georgian (U+10A0–U+10FF, U+1C90–U+1CBF, U+2D00–U+2D2F)
+  if ((codePoint >= 0x10A0 && codePoint <= 0x10FF) ||
+      (codePoint >= 0x1C90 && codePoint <= 0x1CBF) ||
+      (codePoint >= 0x2D00 && codePoint <= 0x2D2F)) {
+    const f = pool.find(p => p.label === 'georgian');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 15. Armenian (U+0530–U+058F, U+FB13–U+FB17)
+  if ((codePoint >= 0x0530 && codePoint <= 0x058F) || (codePoint >= 0xFB13 && codePoint <= 0xFB17)) {
+    const f = pool.find(p => p.label === 'armenian');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 16. Thai (U+0E00–U+0E7F)
+  if (codePoint >= 0x0E00 && codePoint <= 0x0E7F) {
+    const f = pool.find(p => p.label === 'thai');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
+  }
+
+  // 17. Ethiopic / Amharic (U+1200–U+137F, U+1380–U+139F, U+2D80–U+2DDF, U+AB00–U+AB2F)
   if ((codePoint >= 0x1200 && codePoint <= 0x137F) ||
       (codePoint >= 0x1380 && codePoint <= 0x139F) ||
       (codePoint >= 0x2D80 && codePoint <= 0x2DDF) ||
       (codePoint >= 0xAB00 && codePoint <= 0xAB2F)) {
-    const f = pool.find(p => p.label === 'ethiopic' || p.label.includes('ethiopic') || p.label === 'kefa_mac');
+    const f = pool.find(p => p.label === 'ethiopic');
     if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 3. Arabic / Persian / Urdu
+  // 18. Arabic / Persian / Urdu (U+0600–U+06FF, U+0750–U+077F, U+08A0–U+08FF, U+FB50–U+FDFF, U+FE70–U+FEFF)
   if ((codePoint >= 0x0600 && codePoint <= 0x06FF) ||
       (codePoint >= 0x0750 && codePoint <= 0x077F) ||
       (codePoint >= 0x08A0 && codePoint <= 0x08FF) ||
       (codePoint >= 0xFB50 && codePoint <= 0xFDFF) ||
       (codePoint >= 0xFE70 && codePoint <= 0xFEFF)) {
-    const f = pool.find(p => p.label === 'arabic' || p.label.includes('arabic'));
+    const f = pool.find(p => p.label === 'arabic');
     if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 4. Devanagari (Hindi, Marathi, Sanskrit, Nepali)
+  // 19. Devanagari (Hindi, Marathi, Sanskrit, Nepali) (U+0900–U+097F, U+A8E0–U+A8FF)
   if ((codePoint >= 0x0900 && codePoint <= 0x097F) ||
       (codePoint >= 0xA8E0 && codePoint <= 0xA8FF)) {
-    const f = pool.find(p => p.label === 'devanagari' || p.label.includes('devanagari'));
+    const f = pool.find(p => p.label === 'devanagari');
     if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 5. Hebrew
+  // 20. Hebrew (U+0590–U+05FF, U+FB1D–U+FB4F)
   if ((codePoint >= 0x0590 && codePoint <= 0x05FF) ||
       (codePoint >= 0xFB1D && codePoint <= 0xFB4F)) {
-    const f = pool.find(p => p.label === 'hebrew' || p.label.includes('hebrew'));
+    const f = pool.find(p => p.label === 'hebrew');
     if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 6. Korean (Hangul)
+  // 21. Korean Hangul (U+AC00–U+D7AF, U+1100–U+11FF, U+3130–U+318F)
   if ((codePoint >= 0xAC00 && codePoint <= 0xD7AF) ||
       (codePoint >= 0x1100 && codePoint <= 0x11FF) ||
       (codePoint >= 0x3130 && codePoint <= 0x318F)) {
-    const f = pool.find(p => (p.label === 'korean' || p.label.includes('kr') || p.label === 'arial_unicode') && p.fontkit && p.fontkit.hasGlyphForCodePoint(codePoint));
-    if (f) return f;
+    const f = pool.find(p => p.label === 'korean');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 7. Japanese Hiragana & Katakana
+  // 22. Japanese Hiragana & Katakana (U+3040–U+309F, U+30A0–U+30FF, U+FF65–U+FF9F)
   if ((codePoint >= 0x3040 && codePoint <= 0x309F) ||
       (codePoint >= 0x30A0 && codePoint <= 0x30FF) ||
       (codePoint >= 0xFF65 && codePoint <= 0xFF9F)) {
-    const f = pool.find(p => (p.label === 'japanese' || p.label === 'arial_unicode') && p.fontkit && p.fontkit.hasGlyphForCodePoint(codePoint));
-    if (f) return f;
+    const f = pool.find(p => p.label === 'japanese');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 8. CJK Ideographs (Hanzi / Kanji / Hanja)
+  // 23. CJK Ideographs (Hanzi / Kanji / Hanja)
   if ((codePoint >= 0x4E00 && codePoint <= 0x9FFF) ||
       (codePoint >= 0x3400 && codePoint <= 0x4DBF)) {
-    const f = pool.find(p => (p.label === 'chinese' || p.label === 'japanese' || p.label === 'korean' || p.label === 'arial_unicode') && p.fontkit && p.fontkit.hasGlyphForCodePoint(codePoint));
+    const f = pool.find(p => (p.label === 'chinese' || p.label === 'japanese' || p.label === 'korean') && p.fontkit && p.fontkit.hasGlyphForCodePoint(codePoint));
     if (f) return f;
   }
 
-  // 9. Cyrillic & Greek
+  // 24. Cyrillic & Greek
   if ((codePoint >= 0x0400 && codePoint <= 0x052F) ||
       (codePoint >= 0x0370 && codePoint <= 0x03FF) ||
       (codePoint >= 0x1F00 && codePoint <= 0x1FFF)) {
-    const f = pool.find(p => (p.label === 'latin' || p.label === 'japanese' || p.label === 'arial_unicode') && p.fontkit && p.fontkit.hasGlyphForCodePoint(codePoint));
-    if (f) return f;
+    const f = pool.find(p => p.label === 'latin');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 10. Latin / Western
+  // 25. Latin / Western & common symbols
   if (codePoint <= 0x024F) {
-    const f = pool.find(p => (p.label === 'latin' || p.label === 'arial_unicode') && p.fontkit && p.fontkit.hasGlyphForCodePoint(codePoint));
-    if (f) return f;
+    const f = pool.find(p => p.label === 'latin');
+    if (f && f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) return f;
   }
 
-  // 11. General search: any font having the glyph
+  // 26. General search: any font having the glyph
   for (const f of pool) {
     if (f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) {
       return f;
@@ -227,36 +331,43 @@ function segmentText(text, pool) {
 }
 
 /**
- * Write plain text content to a PDF file with multi-font fallback.
+ * Write plain text content to a PDF file with universal multi-font fallback.
  */
 function textToPdf(text, outputPath) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFKit({ margin: 60, size: 'A4' });
+    const doc = new PDFKit({ margin: 50, size: 'A4' });
     const out  = fs.createWriteStream(outputPath);
     doc.pipe(out);
 
     const pool = initFontPool();
-    const runs = segmentText(text, pool);
+    const rawLines = text.split(/\r?\n/);
 
-    for (let i = 0; i < runs.length; i++) {
-      const isLast = (i === runs.length - 1);
-      const run = runs[i];
-
-      if (run.font) {
-        if (run.font.family) {
-          doc.font(run.font.path, run.font.family);
-        } else {
-          doc.font(run.font.path);
-        }
-      } else {
-        doc.font('Helvetica');
+    for (const rawLine of rawLines) {
+      if (!rawLine.trim()) {
+        doc.moveDown(0.5);
+        continue;
       }
 
-      doc.fontSize(12).text(run.text, {
-        lineGap: 4,
-        paragraphGap: 8,
-        continued: !isLast,
-      });
+      const runs = segmentText(rawLine, pool);
+      for (let i = 0; i < runs.length; i++) {
+        const isLastInLine = (i === runs.length - 1);
+        const run = runs[i];
+
+        if (run.font) {
+          if (run.font.family) {
+            doc.font(run.font.path, run.font.family);
+          } else {
+            doc.font(run.font.path);
+          }
+        } else {
+          doc.font('Helvetica');
+        }
+
+        doc.fontSize(11).text(run.text, {
+          lineGap: 4,
+          continued: !isLastInLine,
+        });
+      }
     }
 
     doc.end();
@@ -280,4 +391,4 @@ function htmlToPdf(htmlContent, outputPath) {
   return textToPdf(plainText, outputPath);
 }
 
-module.exports = { textToPdf, htmlToPdf, initFontPool };
+module.exports = { textToPdf, htmlToPdf, initFontPool, getFontForChar, segmentText };
