@@ -57,6 +57,7 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 // Public routes (health checks, keep-alive, ping, documentation)
 app.use('/api/health',  healthRouter);
+app.use('/health',      healthRouter);
 app.use('/api/refresh', refreshRouter);
 app.use('/api/ping',    refreshRouter);
 app.use('/ping',        refreshRouter);
