@@ -54,23 +54,21 @@ function initFontPool() {
   add('japanese', path.join(__dirname, '..', '..', 'assets', 'fonts', 'BIZUDGothic-Regular.ttf'));
   add('chinese',  path.join(__dirname, '..', '..', 'assets', 'fonts', 'Chinese.ttf'));
 
-  // 4. System fallbacks for Linux / Docker / macOS / Windows (only if needed)
-  if (!pool.some(p => p.label.startsWith('arial'))) {
-    add('wqy_zenhei_linux', '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc');
-    add('noto_cjk_linux', '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc');
-    add('noto_cjk_truetype', '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc');
-    add('noto_ethiopic_linux', '/usr/share/fonts/truetype/noto/NotoSansEthiopic-Regular.ttf');
-    add('kefa_mac', '/System/Library/Fonts/Supplemental/KefaIII.ttf');
-    add('apple_gothic_mac', '/System/Library/Fonts/Supplemental/AppleGothic.ttf');
-    add('noto_gothic_mac', '/System/Library/Fonts/Supplemental/NotoSansGothic-Regular.ttf');
-    add('ipafont_linux', '/usr/share/fonts/truetype/ipafont-gothic/ipag.ttf');
-    add('takao_linux', '/usr/share/fonts/truetype/takao-gothic/TakaoPGothic.ttf');
-    add('dejavu_linux', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
-    add('liberation_linux', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf');
-    add('nyala_win', 'C:\\Windows\\Fonts\\nyala.ttf');
-    add('msgothic_win', 'C:\\Windows\\Fonts\\msgothic.ttc');
-    add('msyh_win', 'C:\\Windows\\Fonts\\msyh.ttc');
-  }
+  // 4. System fallbacks for Linux / Docker / macOS / Windows
+  add('kefa_mac', '/System/Library/Fonts/Supplemental/KefaIII.ttf');
+  add('apple_gothic_mac', '/System/Library/Fonts/Supplemental/AppleGothic.ttf');
+  add('noto_gothic_mac', '/System/Library/Fonts/Supplemental/NotoSansGothic-Regular.ttf');
+  add('noto_cjk_linux', '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc');
+  add('noto_cjk_truetype', '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc');
+  add('wqy_zenhei_linux', '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc');
+  add('noto_ethiopic_linux', '/usr/share/fonts/truetype/noto/NotoSansEthiopic-Regular.ttf');
+  add('ipafont_linux', '/usr/share/fonts/truetype/ipafont-gothic/ipag.ttf');
+  add('takao_linux', '/usr/share/fonts/truetype/takao-gothic/TakaoPGothic.ttf');
+  add('dejavu_linux', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
+  add('liberation_linux', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf');
+  add('nyala_win', 'C:\\Windows\\Fonts\\nyala.ttf');
+  add('msgothic_win', 'C:\\Windows\\Fonts\\msgothic.ttc');
+  add('msyh_win', 'C:\\Windows\\Fonts\\msyh.ttc');
 
   if (pool.length > 0) {
     logger.info(`PDF font pool initialized with ${pool.length} font(s): ${pool.map(p => p.label).join(', ')}`);
@@ -82,25 +80,16 @@ function initFontPool() {
   return pool;
 }
 
-// In-memory cache for character-to-font mapping to ensure O(1) lookups
-const charFontCache = new Map();
-
 /**
- * Find the font in the pool that has a glyph for codePoint (memoized).
+ * Find the font in the pool that has a glyph for codePoint.
  */
 function getFontForChar(pool, codePoint) {
-  let cached = charFontCache.get(codePoint);
-  if (cached !== undefined) return cached;
-
   for (const f of pool) {
     if (f.fontkit && f.fontkit.hasGlyphForCodePoint(codePoint)) {
-      charFontCache.set(codePoint, f);
       return f;
     }
   }
-  const fallback = pool[0] || null;
-  charFontCache.set(codePoint, fallback);
-  return fallback;
+  return pool[0] || null;
 }
 
 /**
