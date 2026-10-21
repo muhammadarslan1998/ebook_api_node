@@ -2,6 +2,11 @@
 /**
  * Server entry point — starts the HTTP server and schedules cleanup tasks.
  */
+// Ensure FontKit handles complex scripts without crashing on null GPOS anchors
+try {
+  require('./scripts/patch-fontkit');
+} catch (_) {}
+
 const app    = require('./src/app');
 const config = require('./src/config');
 const logger = require('./src/logger');

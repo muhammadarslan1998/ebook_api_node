@@ -1,13 +1,16 @@
 # Use official Node.js Debian Bookworm slim image
 FROM node:22-bookworm-slim
 
-# Install Calibre and essential fonts for eBook rendering (including CJK, Thai, Ethiopic, Arabic, Indic)
+# Install Calibre and essential fonts for eBook rendering (covering Indic, CJK, Thai, Ethiopic, Arabic, Cyrillic, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     calibre \
+    fontconfig \
     fonts-liberation \
     fonts-dejavu-core \
     fonts-noto-cjk \
     fonts-noto-core \
+    fonts-noto-extra \
+    fonts-indic \
     fonts-thai-tlwg \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -15,14 +18,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy package manifests first for efficient layer caching
+# Copy package manifests and scripts first for layer caching & postinstall hooks
 COPY package*.json ./
+COPY scripts/ ./scripts/
 
 # Install production dependencies
 RUN npm ci --omit=dev
 
 # Copy application source
 COPY . .
+
+# Register bundled Google fonts into system font cache for Calibre and system fontconfig
+RUN mkdir -p /usr/local/share/fonts/ebook-fonts && \
+    cp assets/fonts/*.ttf /usr/local/share/fonts/ebook-fonts/ 2>/dev/null || true && \
+    fc-cache -f
+
+# Explicitly run FontKit patch to guarantee complex-script layout safety
+RUN node scripts/patch-fontkit.js
 
 # Create uploads and converted directories with correct permissions
 RUN mkdir -p uploads converted

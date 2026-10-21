@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit",
     "lint": "eslint src/**/*.js server.js",
-    "postinstall": "node scripts/patch-fontkit.js"
+    "postinstall": "node scripts/patch-fontkit.js || true"
   },
   "keywords": [
     "ebook",
