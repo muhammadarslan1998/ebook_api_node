@@ -1,11 +1,13 @@
 # Use official Node.js Debian Bookworm slim image
 FROM node:22-bookworm-slim
 
-# Install Calibre and essential fonts for eBook rendering
+# Install Calibre and essential fonts for eBook rendering (including CJK / Japanese / Chinese / Korean)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     calibre \
     fonts-liberation \
     fonts-dejavu-core \
+    fonts-noto-cjk \
+    fonts-noto-core \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
