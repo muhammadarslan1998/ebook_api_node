@@ -3,6 +3,7 @@
  * HTML ↔ Text converters
  */
 const { htmlToText } = require('html-to-text');
+const { GOOGLE_FONTS_HTML_HEAD, UNIVERSAL_CSS_RULES } = require('./fontConfig');
 
 /**
  * Convert HTML file content to plain text
@@ -32,10 +33,11 @@ function textContentToHtml(text, title = 'Document') {
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>${_esc(title)}</title>
+${GOOGLE_FONTS_HTML_HEAD}
 <style>
-  body { font-family: Georgia, serif; line-height: 1.7; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #222; }
-  p { margin: 0.8em 0; }
+${UNIVERSAL_CSS_RULES}
 </style>
 </head>
 <body>

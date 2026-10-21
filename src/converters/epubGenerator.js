@@ -11,6 +11,7 @@
  */
 const fs       = require('fs');
 const { EPub } = require('epub-gen-memory');
+const { UNIVERSAL_CSS_RULES } = require('./fontConfig');
 
 /**
  * Strip <img> tags whose src is not an absolute http(s) URL,
@@ -52,13 +53,7 @@ async function generateEpub(opts, outputPath) {
     lang,
     fonts: [],                  // no external font downloads
     ignoreFailedDownloads: true, // silently skip any image that fails to download
-    css: `
-      body  { font-family: Georgia, serif; line-height: 1.7; margin: 1em 2em; color: #222; }
-      h1, h2, h3 { color: #111; margin: 1em 0 0.5em; }
-      p    { margin: 0.8em 0; }
-      pre  { background: #f4f4f4; padding: 0.5em; white-space: pre-wrap; }
-      code { font-family: monospace; }
-    `,
+    css: UNIVERSAL_CSS_RULES,
   };
 
   const epubChapters = chapters.map((ch, i) => ({

@@ -5,6 +5,7 @@
  */
 const mammoth   = require('mammoth');
 const { htmlToText } = require('html-to-text');
+const { GOOGLE_FONTS_HTML_HEAD, UNIVERSAL_CSS_RULES } = require('./fontConfig');
 
 /**
  * Extract raw HTML from DOCX
@@ -16,11 +17,11 @@ async function docxToHtml(inputPath) {
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Converted Document</title>
+${GOOGLE_FONTS_HTML_HEAD}
 <style>
-  body { font-family: Arial, sans-serif; line-height: 1.7; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #222; }
-  h1,h2,h3 { color: #111; }
-  p { margin: 0.8em 0; }
+${UNIVERSAL_CSS_RULES}
 </style>
 </head>
 <body>

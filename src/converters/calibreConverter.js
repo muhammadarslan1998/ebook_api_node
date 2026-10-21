@@ -16,6 +16,7 @@ const { execFile } = require('child_process');
 const path         = require('path');
 const fs           = require('fs');
 const util         = require('util');
+const { UNIVERSAL_FONT_FAMILY } = require('./fontConfig');
 const logger       = require('../logger');
 
 const execFileAsync = util.promisify(execFile);
@@ -102,19 +103,26 @@ async function calibreConvert(inputPath, outputPath, extraArgs = {}) {
     throw err;
   }
 
+  // Default font and encoding arguments ensuring cross-language glyph fidelity
+  const mergedArgs = {
+    '--input-encoding': 'utf-8',
+    '--extra-css': `body, p, div, span, h1, h2, h3, h4, h5, h6, li { font-family: ${UNIVERSAL_FONT_FAMILY} !important; }`,
+    ...extraArgs,
+  };
+
   // Use calibre-debug with wrapper script if available to benefit from bug patches
   let binToExecute;
   let args;
 
   if (debugBin && fs.existsSync(WRAPPER_SCRIPT)) {
     binToExecute = debugBin;
-    args = [WRAPPER_SCRIPT, inputPath, outputPath];
+    args = [WRAPPER_SCRIPT, '--', inputPath, outputPath];
   } else {
     binToExecute = convertBin || 'ebook-convert';
     args = [inputPath, outputPath];
   }
 
-  for (const [key, value] of Object.entries(extraArgs)) {
+  for (const [key, value] of Object.entries(mergedArgs)) {
     args.push(key);
     if (value !== null && value !== undefined && value !== '') args.push(String(value));
   }

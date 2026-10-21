@@ -8,6 +8,7 @@ const path = require('path');
 const JSZip = require('jszip');
 const xml2js = require('xml2js');
 const { htmlToText } = require('html-to-text');
+const { GOOGLE_FONTS_HTML_HEAD, UNIVERSAL_CSS_RULES } = require('./fontConfig');
 const logger = require('../logger');
 
 /**
@@ -206,11 +207,11 @@ function chaptersToHtml(metadata, chapters) {
 <html lang="${metadata.language}">
 <head>
 <meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>${_esc(metadata.title)}</title>
+${GOOGLE_FONTS_HTML_HEAD}
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Ethiopic", "Kefa", "Nyala", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans CJK JP", "Noto Sans", Arial, sans-serif; line-height: 1.7; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #222; }
-  h1,h2,h3 { color: #111; }
-  p { margin: 0.8em 0; }
+${UNIVERSAL_CSS_RULES}
 </style>
 </head>
 <body>
