@@ -6,6 +6,7 @@ const app    = require('./src/app');
 const config = require('./src/config');
 const logger = require('./src/logger');
 const { pruneOldJobs } = require('./src/jobStore');
+const { initFontPool } = require('./src/converters/pdfGenerator');
 
 const PORT = config.port;
 
@@ -16,6 +17,11 @@ const server = app.listen(PORT, () => {
   logger.info(`   Health:    http://localhost:${PORT}/api/health`);
   logger.info(`   Refresh:   http://localhost:${PORT}/api/refresh`);
   logger.info(`   Max size:  ${config.upload.maxFileSizeMB} MB`);
+
+  // Pre-warm font pool in background for instant first PDF conversion
+  setImmediate(() => {
+    try { initFontPool(); } catch (_) {}
+  });
 });
 
 // Periodically clean up old converted files
