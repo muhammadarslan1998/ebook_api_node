@@ -1,0 +1,87 @@
+{
+  "info": {
+    "name": "Ebook Converter API - Local",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "apiKey",
+      "value": "ebook_converter_call"
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health",
+        "header": []
+      }
+    },
+    {
+      "name": "Convert File",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "targetFormat",
+              "value": "pdf",
+              "type": "text"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/convert"
+      }
+    },
+    {
+      "name": "Download Converted File",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/convert/download/{{jobId}}",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Delete Job Files",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/api/convert/{{jobId}}/files"
+      }
+    }
+  ]
+}

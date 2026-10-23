@@ -1,274 +1,87 @@
-# eBook Converter API
+# Calibre Ebook Converter API
 
-A powerful Node.js REST API for converting eBooks and documents between multiple formats — no Calibre required!
+Node.js/Express API around Calibre `ebook-convert`.
 
-## ✨ Supported Formats
+## Supported matrix
+Input: EPUB, MOBI, PDF, TXT, AZW3, LRF, FB2, TCR, RTF, PDB.
 
-| Source | Targets                    |
-|--------|----------------------------|
-| EPUB   | PDF, HTML, TXT             |
-| PDF    | HTML, TXT, EPUB            |
-| DOCX   | PDF, HTML, TXT, EPUB       |
-| TXT    | PDF, HTML, EPUB            |
-| HTML   | PDF, TXT, EPUB             |
+EPUB -> AZW3, LRF, MOBI, OEB, PDB, PDF, RTF, TXT.
 
-## 🚀 Quick Start
+All other supported inputs -> AZW3, LRF, EPUB, MOBI, OEB, PDB, PDF, RTF, TXT.
 
-### 1. Install dependencies
+OEB is returned as a `.oeb.zip`, because Calibre writes OEB as a directory.
 
-```bash
-npm install
-```
-
-### 2. Copy environment file
-
+## Run with Docker
 ```bash
 cp .env.example .env
+docker compose up --build -d
+curl http://localhost:3000/health
 ```
 
-### 3. Start the server
-
-**Development mode** (auto-restarts on file changes):
+## Run locally
+Install Node.js 22+, Calibre (`ebook-convert`) and Unicode fonts first.
 ```bash
-npm run dev
-```
-
-**Production mode:**
-```bash
+cp .env.example .env
+npm install
 npm start
 ```
 
-The server starts at **http://localhost:3000**
+## API
+### Formats
+`GET /api/v1/formats`
 
-### 4. Open the interactive docs
+### Convert
+`POST /api/v1/convert` as multipart/form-data:
+- `file`: ebook
+- `outputFormat`: epub/mobi/azw3/lrf/oeb/pdb/pdf/rtf/txt (matrix is validated)
 
-Navigate to **http://localhost:3000/api/docs** in your browser — you'll see the full Swagger UI where you can test every endpoint.
-
----
-
-## 🔒 Authentication
-
-All conversion (`/api/convert/*`) and cleanup endpoints require a static API authentication token configured via the `API_AUTH_TOKEN` environment variable.
-
-You can supply the token in any of the following ways:
-1. **Header (Recommended):** `x-api-key: <YOUR_API_TOKEN>`
-2. **Bearer Header:** `Authorization: Bearer <YOUR_API_TOKEN>`
-3. **Query Parameter:** `?apiKey=<YOUR_API_TOKEN>` (or `?token=...`)
-
-*(Public endpoints `/api/health`, `/api/refresh`, `/api/ping`, and `/api/docs` do not require authentication.)*
-
----
-
-## 📡 API Endpoints
-
-### `GET /api/health` (Public)
-Check API health and stats.
-
-### `GET /api/refresh` (or `GET /api/ping`) (Public)
-Keep-alive ping endpoint to prevent sleep on free hosting tiers (Render, Railway, etc.) or wake up the server.
-
+Example:
 ```bash
-curl http://localhost:3000/api/refresh
-```
-
-```json
-{
-  "status": "alive",
-  "message": "Server is awake and active",
-  "timestamp": "2026-08-27T10:07:00.000Z",
-  "uptimeSeconds": 300,
-  "uptimeFormatted": "5m 0s"
-}
-```
-
-### `GET /api/cleanup` (or `GET /api/convert/cleanup`)
-Manually delete uploaded and converted files older than TTL (default 1 hour = 60 minutes).
-
-```bash
-# Default (1 hour / 60 minutes):
-curl http://localhost:3000/api/cleanup
-
-# Custom TTL (e.g. 30 minutes, or 0 to clear all):
-curl "http://localhost:3000/api/cleanup?ttlMinutes=30"
-```
-
-```json
-{
-  "status": "success",
-  "message": "Cleanup completed for files older than 60 minute(s).",
-  "ttlMinutes": 60,
-  "summary": {
-    "prunedJobs": 1,
-    "uploadsDeleted": 3,
-    "convertedDeleted": 2,
-    "totalFilesDeleted": 5,
-    "bytesFreed": 4500000,
-    "megabytesFreed": "4.29 MB"
-  },
-  "timestamp": "2026-08-27T10:12:00.000Z"
-}
-```
-
-### `GET /api/convert/formats`
-List all supported source → target format pairs.
-
-### `POST /api/convert` — Synchronous conversion
-Upload a file, converts it immediately, and returns a JSON response with the `downloadUrl`.
-
-```bash
-curl -X POST http://localhost:3000/api/convert \
-  -H "x-api-key: <YOUR_API_TOKEN>" \
-  -F "file=@mybook.azw3" \
-  -F "targetFormat=txt"
-```
-
-```json
-{
-  "status": "success",
-  "message": "Conversion completed successfully.",
-  "jobId": "80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
-  "sourceFile": "mybook.azw3",
-  "from": "azw3",
-  "to": "txt",
-  "outputFileName": "mybook.txt",
-  "fileSizeBytes": 51230,
-  "downloadUrl": "http://localhost:3000/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7?token=<YOUR_API_TOKEN>",
-  "downloadPath": "/api/convert/download/80a440fa-5d38-47e5-b5ea-0ff3597e47f7",
-  "expiresIn": "60 minutes"
-}
-```
-
-> **Note:** To stream the raw binary directly instead of JSON, append `?direct=true`:  
-> `curl -X POST "http://localhost:3000/api/convert?direct=true" -H "x-api-key: <YOUR_API_TOKEN>" -F "file=@book.epub" -F "targetFormat=pdf" -o book.pdf`
-
-### `POST /api/convert/async` — Asynchronous conversion
-Start a background conversion job (useful for large files).
-
-```bash
-# 1. Start job
-curl -X POST http://localhost:3000/api/convert/async \
-  -H "x-api-key: <YOUR_API_TOKEN>" \
-  -F "file=@mybook.epub" \
-  -F "targetFormat=pdf"
-
-# Response:
-# { "jobId": "abc123", "pollUrl": "/api/convert/job/abc123?token=...", ... }
-
-# 2. Poll for status
-curl "http://localhost:3000/api/convert/job/abc123?token=<YOUR_API_TOKEN>"
-
-# 3. Download when done
-curl "http://localhost:3000/api/convert/download/abc123?token=<YOUR_API_TOKEN>" -o output.pdf
-```
-
----
-
-## 🛠️ Configuration (`.env`)
-
-| Variable           | Default     | Description                      |
-|--------------------|-------------|----------------------------------|
-| `PORT`             | `3000`      | HTTP port to listen on           |
-| `API_AUTH_TOKEN`   | `""`        | Static secret token required for conversion endpoints |
-| `NODE_ENV`         | `development` | `development` or `production`  |
-| `LOG_LEVEL`        | `info`      | Winston log level                |
-| `MAX_FILE_SIZE_MB` | `100`       | Maximum upload file size in MB   |
-| `OUTPUT_TTL_MS`    | `3600000`   | How long to keep output files (ms)|
-| `ENABLE_SELF_PING` | `false`     | Auto-ping `/api/refresh` every 13m (uses `RENDER_EXTERNAL_URL` on Render) |
-| `SELF_PING_URL`    | `""`        | Custom URL for background self-ping |
-
----
-
-## 🚀 Deploying to Render
-
-Render does **not** install Calibre in its standard Node environment. Therefore, deploy using the included **Dockerfile**:
-
-1. Push this repository to GitHub / GitLab.
-2. In the [Render Dashboard](https://dashboard.render.com/):
-   - Click **New +** → **Web Service**
-   - Connect your repository
-   - Select **Runtime: Docker** (Render will auto-detect the `Dockerfile`)
-   - Set **Plan: Free** (or your desired tier)
-3. Click **Create Web Service**.
-
-The `Dockerfile` automatically installs Calibre and all required system libraries.
-
----
-
-## 📁 Project Structure
-
-```
-ebook_converter_api/
-├── server.js                    # Entry point (HTTP server)
-├── src/
-│   ├── app.js                   # Express app setup
-│   ├── config.js                # App configuration
-│   ├── logger.js                # Winston logger
-│   ├── jobStore.js              # In-memory async job tracking
-│   ├── swaggerSpec.js           # OpenAPI 3.0 specification
-│   ├── converters/
-│   │   ├── conversionEngine.js  # Central dispatch table
-│   │   ├── epubConverter.js     # EPUB → HTML/TXT parser
-│   │   ├── epubGenerator.js     # → EPUB generator
-│   │   ├── pdfConverter.js      # PDF → HTML/TXT parser
-│   │   ├── pdfGenerator.js      # → PDF generator (PDFKit)
-│   │   ├── docxConverter.js     # DOCX → HTML/TXT (mammoth)
-│   │   └── htmlConverter.js     # HTML ↔ TXT utilities
-│   ├── middleware/
-│   │   ├── upload.js            # Multer upload config
-│   │   └── errorHandler.js      # Global error handler
-│   └── routes/
-│       ├── convert.js           # Conversion endpoints
-│       └── health.js            # Health check endpoint
-├── uploads/                     # Temp uploaded files (auto-created)
-├── converted/                   # Converted output files (auto-created)
-├── .env.example                 # Environment variable template
-├── package.json
-└── README.md
-```
-
----
-
-## 🧰 Tech Stack
-
-- **Express 5** — HTTP framework
-- **Multer** — Multipart file uploads
-- **PDFKit** — PDF generation
-- **pdf-parse** — PDF text extraction  
-- **mammoth** — DOCX → HTML conversion
-- **epub-gen-memory** — EPUB generation
-- **JSZip + xml2js** — EPUB parsing
-- **html-to-text** — HTML → plain text
-- **swagger-ui-express** — Interactive API docs
-- **Winston + Morgan** — Logging
-- **Helmet + CORS** — Security
-
----
-
-## 📝 Example cURL Commands
-
-```bash
-# EPUB → PDF
-curl -X POST http://localhost:3000/api/convert \
+curl -X POST http://localhost:3000/api/v1/convert \
   -F "file=@book.epub" \
-  -F "targetFormat=pdf" -o book.pdf
-
-# DOCX → EPUB
-curl -X POST http://localhost:3000/api/convert \
-  -F "file=@document.docx" \
-  -F "targetFormat=epub" -o document.epub
-
-# TXT → PDF
-curl -X POST http://localhost:3000/api/convert \
-  -F "file=@notes.txt" \
-  -F "targetFormat=pdf" -o notes.pdf
-
-# HTML → EPUB
-curl -X POST http://localhost:3000/api/convert \
-  -F "file=@article.html" \
-  -F "targetFormat=epub" -o article.epub
-
-# PDF → TXT
-curl -X POST http://localhost:3000/api/convert \
-  -F "file=@report.pdf" \
-  -F "targetFormat=txt" -o report.txt
+  -F "outputFormat=pdf"
 ```
+
+If `API_KEY` is set, add `-H "x-api-key: YOUR_KEY"` to `/api/v1/*` calls.
+
+### Job
+`GET /api/v1/jobs/:jobId`
+
+### Download
+`GET /api/v1/jobs/:jobId/download`
+
+### Delete one job and BOTH uploaded/converted files
+`DELETE /api/v1/jobs/:jobId/files`
+
+### Delete expired files
+`DELETE /api/v1/cleanup/expired`
+
+The server also runs expired-file cleanup automatically. Configure TTL with `FILE_TTL_MINUTES`.
+
+## Flutter example
+```dart
+final request = http.MultipartRequest(
+  'POST',
+  Uri.parse('$baseUrl/api/v1/convert'),
+);
+request.fields['outputFormat'] = 'pdf';
+request.files.add(await http.MultipartFile.fromPath('file', filePath));
+final response = await request.send();
+```
+
+After downloading, call:
+```dart
+await http.delete(Uri.parse('$baseUrl/api/v1/jobs/$jobId/files'));
+```
+
+## Fonts / missing squares
+The Docker image installs broad Noto, CJK, DejaVu and FreeFont coverage. For EPUB/AZW3/PDF, the API passes Calibre's `--embed-all-fonts` and `--subset-embedded-fonts`. This significantly improves multilingual output when the needed glyphs exist on the server and the destination supports embedded fonts.
+
+No converter can guarantee every Unicode glyph in every legacy output format. MOBI/PDB/LRF/RTF/TXT have format/reader limitations. PDF input can also contain text/fonts that cannot be reconstructed perfectly. Do not use ASCII transliteration because it destroys original Unicode characters.
+
+## Production notes
+- Put the API behind HTTPS/reverse proxy.
+- Set `API_KEY` or replace it with your own authentication.
+- Keep upload limits/timeouts appropriate for your server.
+- For high traffic, move jobs to a real queue (Redis/BullMQ) and isolate conversion workers.
+- Only convert files you are authorized to process; this API does not remove DRM.
